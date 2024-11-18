@@ -46,6 +46,8 @@ task_queue = queue.Queue()
 task_lock = threading.Lock()
 
 # Функция для создания PDF с правильной кодировкой
+
+
 def create_pdf(text, filename):
     pdf = FPDF()
     pdf.add_page()
@@ -55,6 +57,8 @@ def create_pdf(text, filename):
     pdf.output(filename)
 
 # Функция для создания краткого или подробного конспекта
+
+
 async def generate_summary(text, detailed=False):
     prompt = "Сделай краткий конспект следующего текста:\n" if not detailed else "Сделай подробный конспект следующего текста:\n"
     prompt += text
@@ -73,12 +77,16 @@ async def generate_summary(text, detailed=False):
         return "Произошла ошибка при создании конспекта."
 
 # Обработчик команды /start
+
+
 async def start(update, context):
     await update.message.reply_text(
         "Привет, я транскрибирую аудио-файлы или голосовые сообщения (до 3 часов) и могу создать по ним краткий или подробный конспект!"
     )
 
 # Функция для расчета времени ожидания
+
+
 def calculate_wait_time_for_user(user_index, user_file_duration, current_file_duration, queue_durations):
     """
     Расчет времени ожидания для пользователя:
@@ -89,11 +97,15 @@ def calculate_wait_time_for_user(user_index, user_file_duration, current_file_du
     :return: рассчитанное время ожидания в минутах
     """
     # Суммируем продолжительность всех файлов перед пользователем в очереди, а также текущего обрабатываемого файла
-    wait_time_seconds = sum(queue_durations[:user_index]) + current_file_duration + user_file_duration
-    wait_time_minutes = (wait_time_seconds / 60) * 0.3  # Применяем множитель для расчета
+    wait_time_seconds = sum(
+        queue_durations[:user_index]) + current_file_duration + user_file_duration
+    wait_time_minutes = (wait_time_seconds / 60) * \
+        0.3  # Применяем множитель для расчета
     return round(wait_time_minutes, 1)
 
 # Функция для обработки задач из очереди
+
+
 def process_queue():
     global current_processing_user
     loop = asyncio.new_event_loop()
@@ -115,45 +127,59 @@ def process_queue():
                     }
                 )
 
-            logger.info(f"Ответ от Replicate для пользователя {user_id}: {output}")
+            logger.info(
+                f"Ответ от Replicate для пользователя {user_id}: {output}")
 
             segments = output.get("segments", [])
-            text = " ".join([segment["text"] for segment in segments]) if segments else "Текст не найден."
+            text = " ".join([segment["text"] for segment in segments]
+                            ) if segments else "Текст не найден."
 
             pdf_filename = f"Перевод голосового сообщения - {datetime.now().strftime('%H:%M %d %B %Y')}.pdf"
             create_pdf(text, pdf_filename)
 
-            loop.run_until_complete(context.bot.send_document(chat_id=user_id, document=open(pdf_filename, "rb")))
+            loop.run_until_complete(context.bot.send_document(
+                chat_id=user_id, document=open(pdf_filename, "rb")))
 
             # Сохраняем текст транскрипции для пользователя
             transcription_data[user_id] = text
 
             # Создаем кнопки
             keyboard = [
-                [InlineKeyboardButton("Создать краткий конспект", callback_data=f"summary_short:{user_id}")],
-                [InlineKeyboardButton("Создать подробный конспект", callback_data=f"summary_detailed:{user_id}")],
-                [InlineKeyboardButton("Отправить следующий файл", callback_data=f"next_file:{user_id}")]
+                [InlineKeyboardButton(
+                    "Создать краткий конспект", callback_data=f"summary_short:{user_id}")],
+                [InlineKeyboardButton(
+                    "Создать подробный конспект", callback_data=f"summary_detailed:{user_id}")],
+                [InlineKeyboardButton(
+                    "Отправить следующий файл", callback_data=f"next_file:{user_id}")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
-            loop.run_until_complete(context.bot.send_message(chat_id=user_id, text="Выберите действие:", reply_markup=reply_markup))
+            loop.run_until_complete(context.bot.send_message(
+                chat_id=user_id, text="Выберите действие:", reply_markup=reply_markup))
 
         except replicate.exceptions.ReplicateError as e:
-            logger.error(f"Ошибка при работе с Replicate для пользователя {user_id}: {str(e)}")
-            loop.run_until_complete(context.bot.send_message(chat_id=user_id, text="Ошибка при обработке аудиофайла."))
+            logger.error(
+                f"Ошибка при работе с Replicate для пользователя {user_id}: {str(e)}")
+            loop.run_until_complete(context.bot.send_message(
+                chat_id=user_id, text="Ошибка при обработке аудиофайла."))
         except Exception as e:
-            logger.error(f"Непредвиденная ошибка для пользователя {user_id}: {str(e)}")
-            loop.run_until_complete(context.bot.send_message(chat_id=user_id, text="Произошла непредвиденная ошибка."))
+            logger.error(
+                f"Непредвиденная ошибка для пользователя {user_id}: {str(e)}")
+            loop.run_until_complete(context.bot.send_message(
+                chat_id=user_id, text="Произошла непредвиденная ошибка."))
         finally:
             if os.path.exists(file_path):
                 os.remove(file_path)
             if os.path.exists(pdf_filename):
                 os.remove(pdf_filename)
-            user_processing_status[user_id] = False  # Снимаем блокировку после завершения обработки
+            # Снимаем блокировку после завершения обработки
+            user_processing_status[user_id] = False
             current_processing_user = None  # Освобождаем текущего пользователя
         task_queue.task_done()
 
 # Функция для загрузки файла по ссылке
+
+
 def download_file_from_url(url):
     local_filename = url.split('/')[-1]
     with requests.get(url, stream=True) as response:
@@ -164,6 +190,8 @@ def download_file_from_url(url):
     return local_filename
 
 # Обработчик сообщений с аудиофайлами, голосовыми сообщениями или ссылками
+
+
 async def handle_audio_or_link(update, context):
     logger.info("Получено сообщение")
 
@@ -193,22 +221,27 @@ async def handle_audio_or_link(update, context):
 
             # Добавляем задачу в очередь
             with task_lock:
-                task_queue.put((user_id, file_path, duration_in_seconds, context))
+                task_queue.put(
+                    (user_id, file_path, duration_in_seconds, context))
                 queue_size = task_queue.qsize()  # Размер очереди
                 if current_processing_user:
                     queue_size += 1  # Добавляем текущего пользователя, если файл уже обрабатывается
 
-                queue_durations = [task[2] for task in list(task_queue.queue)[:-1]]
+                queue_durations = [task[2]
+                                   for task in list(task_queue.queue)[:-1]]
                 current_file_duration = 0
                 if current_processing_user:
-                    current_file_duration = task_queue.queue[0][2]  # Длительность файла текущего пользователя
+                    # Длительность файла текущего пользователя
+                    current_file_duration = task_queue.queue[0][2]
 
                 if queue_size == 1:
-                    wait_time = calculate_wait_time_for_user(0, duration_in_seconds, current_file_duration, queue_durations)
+                    wait_time = calculate_wait_time_for_user(
+                        0, duration_in_seconds, current_file_duration, queue_durations)
                     await update.message.reply_text(f"Вы не в очереди! Ваш файл будет обработан через {wait_time} минут(ы).")
                 else:
                     for i in range(queue_size):
-                        wait_time = calculate_wait_time_for_user(i, duration_in_seconds, current_file_duration, queue_durations)
+                        wait_time = calculate_wait_time_for_user(
+                            i, duration_in_seconds, current_file_duration, queue_durations)
                         await update.message.reply_text(f"Вы в очереди под номером {i}. Ваш файл будет обработан через {wait_time} минут(ы).")
 
         except Exception as e:
@@ -216,6 +249,8 @@ async def handle_audio_or_link(update, context):
             await update.message.reply_text("Произошла ошибка при загрузке файла по ссылке. Проверьте правильность ссылки и попробуйте снова.")
 
 # Обработчик аудиофайлов и голосовых сообщений
+
+
 async def handle_audio(update, context):
     logger.info("Получено аудиосообщение")
     user_id = update.message.from_user.id
@@ -229,7 +264,8 @@ async def handle_audio(update, context):
     user_processing_status[user_id] = True
 
     # Генерируем уникальное имя для файла
-    file_path = f"{user_id}_{uuid.uuid4()}.ogg"  # Генерация уникального имени файла для каждого пользователя
+    # Генерация уникального имени файла для каждого пользователя
+    file_path = f"{user_id}_{uuid.uuid4()}.ogg"
 
     # Получаем файл и проверяем его размер
     if update.message.audio:
@@ -237,7 +273,8 @@ async def handle_audio(update, context):
             await update.message.reply_text(
                 "Файл слишком большой. Максимальный размер файла - 20 МБ. Если хотите обработать файл большего объема, то загрузите его на Google или Яндекс диск, и отправьте мне ссылку на этот файл!"
             )
-            user_processing_status[user_id] = False  # Снимаем блокировку при ошибке
+            # Снимаем блокировку при ошибке
+            user_processing_status[user_id] = False
             return
         file = await update.message.audio.get_file()
     elif update.message.voice:
@@ -245,11 +282,13 @@ async def handle_audio(update, context):
             await update.message.reply_text(
                 "Файл слишком большой. Максимальный размер файла - 20 МБ. Если хотите обработать файл большего объема, то загрузите его на Google или Яндекс диск, и отправьте мне ссылку на этот файл!"
             )
-            user_processing_status[user_id] = False  # Снимаем блокировку при ошибке
+            # Снимаем блокировку при ошибке
+            user_processing_status[user_id] = False
             return
         file = await update.message.voice.get_file()
     else:
-        user_processing_status[user_id] = False  # Снимаем блокировку при ошибке
+        # Снимаем блокировку при ошибке
+        user_processing_status[user_id] = False
         return
 
     await file.download_to_drive(file_path)
@@ -267,18 +306,23 @@ async def handle_audio(update, context):
         queue_durations = [task[2] for task in list(task_queue.queue)[:-1]]
         current_file_duration = 0
         if current_processing_user:
-            current_file_duration = task_queue.queue[0][2]  # Длительность файла текущего пользователя
+            # Длительность файла текущего пользователя
+            current_file_duration = task_queue.queue[0][2]
 
         if queue_size == 1:
-            wait_time = calculate_wait_time_for_user(0, duration_in_seconds, current_file_duration, queue_durations)
+            wait_time = calculate_wait_time_for_user(
+                0, duration_in_seconds, current_file_duration, queue_durations)
             await update.message.reply_text(f"Вы не в очереди! Ваш файл будет обработан через {wait_time} минут(ы).")
         else:
             for i in range(queue_size):
-                wait_time = calculate_wait_time_for_user(i, duration_in_seconds, current_file_duration, queue_durations)
+                wait_time = calculate_wait_time_for_user(
+                    i, duration_in_seconds, current_file_duration, queue_durations)
                 if i == queue_size - 1:
                     await update.message.reply_text(f"Вы в очереди под номером {i}. Ваш файл будет обработан через {wait_time} минут(ы).")
 
 # Обработчик выбора кнопок
+
+
 async def button(update, context):
     query = update.callback_query
     await query.answer()
@@ -306,12 +350,15 @@ async def button(update, context):
         transcription_data.pop(user_id, None)
 
 # Основная функция
+
+
 def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     # Используем универсальный обработчик для аудио и ссылок
-    application.add_handler(MessageHandler(filters.AUDIO | filters.VOICE | filters.TEXT, handle_audio_or_link))
+    application.add_handler(MessageHandler(
+        filters.AUDIO | filters.VOICE | filters.TEXT, handle_audio_or_link))
     application.add_handler(CallbackQueryHandler(button))
 
     # Запускаем поток для обработки очереди
@@ -319,27 +366,6 @@ def main():
 
     application.run_polling()
 
+
 if __name__ == "__main__":
     main()
-
-
-
-
-#                                   [main()]
-#                                   /      \
-#                         [Load .env]    [Setup Bot & Client]
-#                              /                  \
-#                  [Load Variables]       [Command Handlers]
-#                      /                          /        \
-#      [Setup Replicate Client]     [Start Command]  [Handle Audio/Link]
-#              /             \                                   \
-#    [Setup OpenAI Client] [Setup Task Queue]             [Check File Type]
-#                           /           \                      /       \
-#                  [Create PDF]    [Process Queue]  [Download Audio]  [Handle Voice]
-#                                   /        \                               \
-#                    [Generate Summary]    [Wait Time Calc]              [Transcribe Audio]
-#                                            /           \                         \
-#                                [Short Summary] [Detailed Summary]          [Create PDF for User]
-#                                                                       /           \
-#                                                              [Send PDF]  [Send Action Options]
-#

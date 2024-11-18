@@ -3,4 +3,5 @@
 
 # Исключения для файлов, которые мы хотим отслеживать
 !.gitignore
-!bot.py
+!Hanyu.py
+# Ya krevetka
